@@ -80,6 +80,7 @@ unsigned long *lvector(long nl, long nh)
 }
 
 void inline quicksort(unsigned long n, int arr[]){
+	if(n>1){
 	unsigned long i,ir=n,j,k,l=1,*istack;
 	int jstack=0;
 	int a,temp;
@@ -150,12 +151,17 @@ void inline quicksort(unsigned long n, int arr[]){
 		}
 	}
 	free_lvector(istack,1,NSTACK);
+	}else{
+			printf("trying to short an array with n=%d",n);
+			exit(1);
+		}
 }
 
 /*Returns the k th smallest value in the array arr[1..n] . The input array will be rearranged
 to have this value in location arr[k] , with all smaller elements moved to arr[1..k-1] (in
 		arbitrary order) and all larger elements in arr[k+1..n] (also in arbitrary order).*/
 int inline selectkthelem(unsigned long k, unsigned long n, int *arr){
+	if(n>1 && k<=n  ){
 	unsigned long i,ir,j,l,mid;
 	int a,temp;
 	l=1;
@@ -166,6 +172,10 @@ int inline selectkthelem(unsigned long k, unsigned long n, int *arr){
 			if (ir == l+1 && arr[ir] < arr[l]) {
 				//Case of 2 elements.
 				SWAPINT(arr[l],arr[ir]);
+			}
+			if(k<=0){
+				printf("the index is -1 ");
+				exit(1);
 			}
 			return arr[k];
 		} else {
@@ -209,7 +219,12 @@ int inline selectkthelem(unsigned long k, unsigned long n, int *arr){
 			//kth element.
 		}
 	}
+	}else{
+		printf("trying find the kth but k>n or n<1 an array with n=%d k=%d",n,k);
+		exit(1);
+	}
 }
+
 
 void *new_Array(int count,size_t element_size)
 {
@@ -217,81 +232,86 @@ void *new_Array(int count,size_t element_size)
 }
 
 void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
-	unsigned long i,ir=n,j,k,l=1,*istack;
-	int jstack=0;
-	int a,temp;
-	istack=lvector(1,NSTACK);
-	for (;;) {
-		//Insertion sort when subarray small enough.
-		if (ir-l < M) {
-			for (j=l+1;j<=ir;j++) {
-				a=arr[j];
-				for (i=j-1;i>=l;i--) {
-					if (arr[i] <= a) break;
-					arr[i+1]=arr[i];
+	if(n>1){
+		unsigned long i,ir=n,j,k,l=1,*istack;
+		int jstack=0;
+		int a,temp;
+		istack=lvector(1,NSTACK);
+		for (;;) {
+			//Insertion sort when subarray small enough.
+			if (ir-l < M) {
+				for (j=l+1;j<=ir;j++) {
+					a=arr[j];
+					for (i=j-1;i>=l;i--) {
+						if (arr[i] <= a) break;
+						arr[i+1]=arr[i];
+					}
+					arr[i+1]=a;
 				}
-				arr[i+1]=a;
-			}
-			if (jstack == 0) break;
-			ir=istack[jstack--];
-			//Pop stack and begin a new round of parti-
-			l=istack[jstack--];
-			//tioning.
-		} else {
-			k=(l+ir) >> 1;
-			//Choose median of left, center, and right el-
-			SWAPINT(arr[k],arr[l+1]);
-			SWAPDOUBLE(weights[k],weights[l+1]);
-			//ements as partitioning element a. Also
-			if (arr[l] > arr[ir]) {
-				//rearrange so that a[l] ≤ a[l+1] ≤ a[ir].
-				SWAPINT(arr[l],arr[ir]);
-				SWAPDOUBLE(weights[l],weights[ir]);
-			}
-			if (arr[l+1] > arr[ir]) {
-				SWAPINT(arr[l+1],arr[ir]);
-				SWAPDOUBLE(weights[l+1],weights[ir]);
-			}
-			if (arr[l] > arr[l+1]) {
-				SWAPINT(arr[l],arr[l+1]);
-				SWAPDOUBLE(weights[l],weights[l+1]);
-			}
-			i=l+1;
-			//Initialize pointers for partitioning.
-			j=ir;
-			a=arr[l+1];
-			//Partitioning element.
-			for (;;) {
-				//Beginning of innermost loop.
-				do i++; while (arr[i] < a);
-				//Scan up to find element > a.
-				do j--; while (arr[j] > a);
-				//Scan down to find element < a.
-				if (j < i) break;
-				//Pointers crossed. Partitioning complete.
-				SWAPINT(arr[i],arr[j]);
-				SWAPDOUBLE(weights[i],weights[j]);
-				//Exchange elements.
-			}
-			//End of innermost loop.
-			arr[l+1]=arr[j];
-			//Insert partitioning element.
-			arr[j]=a;
-			jstack += 2;
-			//Push pointers to larger subarray on stack, process smaller subarray immediately.
-			if (jstack > NSTACK) nrerror("NSTACK too small in sort.");
-			if (ir-i+1 >= j-l) {
-				istack[jstack]=ir;
-				istack[jstack-1]=i;
-				ir=j-1;
+				if (jstack == 0) break;
+				ir=istack[jstack--];
+				//Pop stack and begin a new round of parti-
+				l=istack[jstack--];
+				//tioning.
 			} else {
-				istack[jstack]=j-1;
-				istack[jstack-1]=l;
-				l=i;
+				k=(l+ir) >> 1;
+				//Choose median of left, center, and right el-
+				SWAPINT(arr[k],arr[l+1]);
+				SWAPDOUBLE(weights[k],weights[l+1]);
+				//ements as partitioning element a. Also
+				if (arr[l] > arr[ir]) {
+					//rearrange so that a[l] ≤ a[l+1] ≤ a[ir].
+					SWAPINT(arr[l],arr[ir]);
+					SWAPDOUBLE(weights[l],weights[ir]);
+				}
+				if (arr[l+1] > arr[ir]) {
+					SWAPINT(arr[l+1],arr[ir]);
+					SWAPDOUBLE(weights[l+1],weights[ir]);
+				}
+				if (arr[l] > arr[l+1]) {
+					SWAPINT(arr[l],arr[l+1]);
+					SWAPDOUBLE(weights[l],weights[l+1]);
+				}
+				i=l+1;
+				//Initialize pointers for partitioning.
+				j=ir;
+				a=arr[l+1];
+				//Partitioning element.
+				for (;;) {
+					//Beginning of innermost loop.
+					do i++; while (arr[i] < a);
+					//Scan up to find element > a.
+					do j--; while (arr[j] > a);
+					//Scan down to find element < a.
+					if (j < i) break;
+					//Pointers crossed. Partitioning complete.
+					SWAPINT(arr[i],arr[j]);
+					SWAPDOUBLE(weights[i],weights[j]);
+					//Exchange elements.
+				}
+				//End of innermost loop.
+				arr[l+1]=arr[j];
+				//Insert partitioning element.
+				arr[j]=a;
+				jstack += 2;
+				//Push pointers to larger subarray on stack, process smaller subarray immediately.
+				if (jstack > NSTACK) nrerror("NSTACK too small in sort.");
+				if (ir-i+1 >= j-l) {
+					istack[jstack]=ir;
+					istack[jstack-1]=i;
+					ir=j-1;
+				} else {
+					istack[jstack]=j-1;
+					istack[jstack-1]=l;
+					l=i;
+				}
 			}
 		}
+		free_lvector(istack,1,NSTACK);
+	}else{
+		printf("trying to short an array with n=%d",n);
+		exit -1;
 	}
-	free_lvector(istack,1,NSTACK);
 }
 
 int generateRandomPositiveNegPotiveValue(int max,int min){
@@ -403,7 +423,7 @@ void createLocalMiNiVector(int localNumberOfElements, int my_rank,
 		int* localElementsRcvBuf, int* miNiSendBuffer) {
 	if (localNumberOfElements != 0) {
 		int k= localNumberOfElements / 2;
-		int kth = selectkthelem(k,localNumberOfElements-1,localElementsRcvBuf-1);
+		int kth = selectkthelem(k,localNumberOfElements,localElementsRcvBuf-1);
 		*(miNiSendBuffer) = kth;//after sorting
 		*(miNiSendBuffer + 1) = localNumberOfElements;
 	} else {
@@ -594,7 +614,7 @@ int main(int argc, char* argv[]){
 		if(my_rank==0){
 			quicksort(sizeOfMainArray,arr-1);
 			quicksort(numberOfEllementsLeft,totalRemainingArr-1);
-			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft-1,totalRemainingArr-1);
+			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArr-1);
 
 			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],totalRemainingArr[kSmallestEllement-1]);
 			printf("the k-th element is %d ",finalKthElement);
