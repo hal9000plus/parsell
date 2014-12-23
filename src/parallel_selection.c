@@ -390,8 +390,8 @@ void computeWeights(int p, int numberOfEllementsLeft,
 		*(weights + ii) = (double) ni / numberOfEllementsLeft;
 		*(miVector + ii) = mi;
 		if (ni == 0) {
-			*(weights + ii) = (double) ni / numberOfEllementsLeft;
-			*(miVector + ii) = mi;
+			*(weights + ii) = 0;
+			*(miVector + ii) = 0;
 		}
 	}
 }
@@ -421,14 +421,14 @@ LOCALCOUNTS* computeLocalCounts(int localNumberOfElements, int weightedMedian, i
 
 void createLocalMiNiVector(int localNumberOfElements, int my_rank,
 		int* localElementsRcvBuf, int* miNiSendBuffer) {
-	if (localNumberOfElements != 0) {
+	if (localNumberOfElements != 0  ) {
 		int k= localNumberOfElements / 2;
 		int kth = selectkthelem(k,localNumberOfElements,localElementsRcvBuf-1);
 		*(miNiSendBuffer) = kth;//after sorting
 		*(miNiSendBuffer + 1) = localNumberOfElements;
-	} else {
-		*(miNiSendBuffer) = 0;
-		*(miNiSendBuffer + 1) = 0;
+	} else if (localNumberOfElements==1){
+		*(miNiSendBuffer) = *localElementsRcvBuf;
+		*(miNiSendBuffer + 1) = 1;
 	}
 }
 
@@ -469,6 +469,41 @@ void print_array(int *array, int length,int rank)
     printf("\n");
 }
 
+int printMiVector(int p, int* miVector) {
+	int i = 0;
+	for (i = 0; i < p; i++) {
+		printf("mi=%d \n", *(miVector + i));
+	}
+}
+
+void printMiNiReceiveBuffer(int p, int* miNiRcvBuffer) {
+	int i=0;
+	for (i = 0; i < p; i++) {
+		printf("mi receive buff=%d ni reiceve buff=%d \n",
+				*(miNiRcvBuffer + (i * 2)), *(miNiRcvBuffer + (i * 2) + 1));
+	}
+}
+
+void printWeights(int p, double* weights) {
+	int i=0;
+	for (i = 0; i < p; i++) {
+		printf("weihgts=%f \n", *(weights + i));
+	}
+}
+
+int printCounts(int numberOfEllementsLeft, LOCALCOUNTS* localCounters,int localNumberOfelements) {
+	printf("test li=%d", localCounters->li);
+	printf("test ei=%d", localCounters->ei);
+	printf("test gi=%d", localCounters->gi);
+	printf("global number of elements remaining=%d", numberOfEllementsLeft);
+	printf("local number of elements remaining=%d", localNumberOfelements);
+}
+
+int printGlobalCounts(int numberOfEllementsLeft, int* bcastbuffer,int my_rank) {
+	printf("test li=%d my_rank", *bcastbuffer,my_rank);
+	printf("test ei=%d my_rank", *bcastbuffer+1,my_rank);
+	printf("test gi=%d my_rank", *bcastbuffer+2,my_rank);
+}
 
   /*
    * input arguments argv[1]=size of random array argv[2]=the rank of the ellement we are looking for
@@ -550,21 +585,9 @@ int main(int argc, char* argv[]){
 		if(my_rank==0){
 			computeWeights(p, numberOfEllementsLeft,
 					miNiRcvBuffer, weights, miVector);
-			int i=0;
-			for(i=0;i<p;i++){
-
-				printf("mi=%d \n",*(miVector+i));
-
-			}
-			for(i=0;i<p;i++){
-							printf("mi receive buff=%d ni reiceve buff=%d \n",*(miNiRcvBuffer + (i * 2)),*(miNiRcvBuffer + (i * 2) + 1));
-
-
-						}
-			for(i=0;i<p;i++){
-
-							printf("weihgts=%f \n",*(weights+i));
-						}
+			printMiVector(p, miVector);
+			printMiNiReceiveBuffer(p, miNiRcvBuffer);
+			printWeights(p, weights);
 			weightedMedian=findWeightedMedian(miVector,weights,0,p-1);//to check the end size!!!!!!!!!!!!!
 			printf("weighed median is =%d \n",weightedMedian);
 		}
@@ -574,13 +597,19 @@ int main(int argc, char* argv[]){
 		MPI_Barrier(MPI_COMM_WORLD);
 		weightedMedian=*bcastBuff;
 		localCounters=computeLocalCounts(localNumberOfElements, weightedMedian, localElementsRcvBuf,leg);
+		printCounts(numberOfEllementsLeft,
+				localCounters,localNumberOfElements);
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Gather(localCounters,1,mpi_local_counts_type,receiveGlobalCounts,1,mpi_local_counts_type,0,MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		fillBcastBuffer(p,receiveGlobalCounts, bcastBuff);
 		MPI_Barrier(MPI_COMM_WORLD);
+
 		MPI_Bcast(bcastBuff,3,MPI_INT,0,MPI_COMM_WORLD);
+		printGlobalCounts(numberOfEllementsLeft,
+				bcastBuff,my_rank);
 		MPI_Barrier(MPI_COMM_WORLD);
+
 		short caseOne=*bcastBuff < kSmallestEllement && kSmallestEllement <= (*bcastBuff + (*(bcastBuff+2)));
 		short caseTwo=*bcastBuff >= kSmallestEllement;
 		if(caseOne){
