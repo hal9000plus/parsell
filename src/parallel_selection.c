@@ -462,50 +462,6 @@ void keepLessElements(int localNumberOfElements, int* localElementsRcvBuf,LEG* l
 		*(localElementsRcvBuf + i) = *(leg->L + i);
 	}
 }
-void print_array(int *array, int length,int rank)
-{
-	int i;
-    for ( i = 0; i < length; i++) { printf("element %d=%d process %d \n", i ,array[i] ,rank); }
-    printf("\n");
-}
-
-void printMiVector(int p, int* miVector) {
-	int i = 0;
-	for (i = 0; i < p; i++) {
-		printf("mi=%d \n", *(miVector + i));
-	}
-
-}
-
-void printMiNiReceiveBuffer(int p, int* miNiRcvBuffer) {
-	int i=0;
-	for (i = 0; i < p; i++) {
-		printf("mi receive buff=%d ni reiceve buff=%d \n",
-				*(miNiRcvBuffer + (i * 2)), *(miNiRcvBuffer + (i * 2) + 1));
-	}
-}
-
-void printWeights(int p, double* weights) {
-	int i=0;
-	for (i = 0; i < p; i++) {
-		printf("weihgts=%f \n", *(weights + i));
-	}
-}
-
-void printCounts(int numberOfEllementsLeft, LOCALCOUNTS* localCounters,int localNumberOfelements,int myrank) {
-	printf("test li=%d myrank=%d \n", localCounters->li,myrank);
-	printf("test ei=%d myrank=%d \n", localCounters->ei,myrank);
-	printf("test gi=%d myrank=%d \n", localCounters->gi,myrank);
-	printf("global number of elements remaining=%d myrank=%d \n", numberOfEllementsLeft,myrank);
-	printf("local number of elements remaining=%d myrank=%d \n", localNumberOfelements,myrank);
-}
-
-void printGlobalCounts(int numberOfEllementsLeft, int* bcastbuffer,int my_rank) {
-	printf("GLOBAL COUNTS test li=%d my_rank=%d noOFelements lest=%d \n", *bcastbuffer,my_rank,numberOfEllementsLeft);
-	printf("GLOBAL COUNTS test gi=%d my_rank=%d noOFelements lest=%d \n", *(bcastbuffer+1),my_rank,numberOfEllementsLeft);
-	printf("GLOBAL COUNTS test ei=%d my_rank=%d noOFelements lest=%d \n", *(bcastbuffer+2),my_rank,numberOfEllementsLeft);
-}
-
   /*
    * input arguments argv[1]=size of random array argv[2]=the rank of the ellement we are looking for
    */
@@ -518,10 +474,11 @@ int main(int argc, char* argv[]){
 	int *miNiRcvBuffer = NULL;
 	int *bcastBuff = NULL;
 	int *miVector = NULL;
-	int *totalRemainingArr = NULL;
+	int *gatherFromAllProcessesArray = NULL;
 	int *totalRemainingArrFinal=NULL;
 	double *weights = NULL;
 	int *miNiSendBuffer = NULL;
+	int *elementPerProcessCount=NULL;
 	int weightedMedian=0;
 	int found=0;
 	int intialRankNumber=0;
@@ -562,15 +519,10 @@ int main(int argc, char* argv[]){
 	/* create a type for struct localCounters */
 
 	if ( my_rank == 0) {
-
 		NEWARRAY(miNiRcvBuffer,p*2);
-
 		NEWARRAY(arr,sizeOfMainArray);
-
 		arr=generateRandomArray(100000,INT_MIN,sizeOfMainArray);
-
 		NEWARRAY(weights,p);
-
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 	scatterTheArray(sizeOfMainArray, p, arrayNumberOfPartitionElements, arr,
@@ -579,19 +531,13 @@ int main(int argc, char* argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);
 	int localNumberOfElements=(arrayNumberOfPartitionElements);
 	while( numberOfEllementsLeft >= (sizeOfMainArray/(constantParametrized*p) )){
-
 		createLocalMiNiVector(localNumberOfElements, my_rank,
 						localElementsRcvBuf, miNiSendBuffer);
 		MPI_Gather(miNiSendBuffer,2,MPI_INT,miNiRcvBuffer,2,MPI_INT,0,MPI_COMM_WORLD);
-
 		if(my_rank==0){
 			computeWeights(p, numberOfEllementsLeft,
 					miNiRcvBuffer, weights, miVector);
-			printMiVector(p, miVector);
-			printMiNiReceiveBuffer(p, miNiRcvBuffer);
-			printWeights(p, weights);
 			weightedMedian=findWeightedMedian(miVector,weights,0,p-1);//to check the end size!!!!!!!!!!!!!
-			printf("weighed median is =%d \n",weightedMedian);
 		}
 		MPI_Barrier(MPI_COMM_WORLD);
 		*bcastBuff=weightedMedian;
@@ -599,19 +545,13 @@ int main(int argc, char* argv[]){
 		MPI_Barrier(MPI_COMM_WORLD);
 		weightedMedian=*bcastBuff;
 		localCounters=computeLocalCounts(localNumberOfElements, weightedMedian, localElementsRcvBuf,leg);//modifies leg also
-		printCounts(numberOfEllementsLeft,
-				localCounters,localNumberOfElements,my_rank);
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Gather(localCounters,1,mpi_local_counts_type,receiveGlobalCounts,1,mpi_local_counts_type,0,MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		fillBcastBuffer(p,receiveGlobalCounts, bcastBuff);
 		MPI_Barrier(MPI_COMM_WORLD);
-
 		MPI_Bcast(bcastBuff,3,MPI_INT,0,MPI_COMM_WORLD);
-		printGlobalCounts(numberOfEllementsLeft,
-				bcastBuff,my_rank);
 		MPI_Barrier(MPI_COMM_WORLD);
-
 		short caseOne=*bcastBuff < kSmallestEllement && kSmallestEllement <= (*bcastBuff + (*(bcastBuff+2)));
 		short caseTwo=*bcastBuff >= kSmallestEllement;
 		if(caseOne){
@@ -625,12 +565,9 @@ int main(int argc, char* argv[]){
 			keepLessElements(localNumberOfElements,
 					localElementsRcvBuf,leg);
 		}else{
-			printf("else %d  \n",my_rank);
 			numberOfEllementsLeft=*(bcastBuff+1);
 			localNumberOfElements=localCounters->gi;
-			printf("OLd KSMALEST=%d \n",kSmallestEllement);
 			kSmallestEllement=kSmallestEllement-(*bcastBuff+(*(bcastBuff+2)));
-			printf("NEW KSMALEST=%d \n",kSmallestEllement);
 			keepGreaterElements(localNumberOfElements,localElementsRcvBuf,leg);
 		}
 		localCounters->ei=0;
@@ -641,43 +578,35 @@ int main(int argc, char* argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);
 	if(!found){
 		if(my_rank==0){
-			NEWARRAY(totalRemainingArr,numberOfEllementsLeft*p);
+			NEWARRAY(gatherFromAllProcessesArray,numberOfEllementsLeft*p);
 			NEWARRAY(totalRemainingArrFinal,numberOfEllementsLeft*p);
+
+			NEWARRAY(elementPerProcessCount,p);
 		}
-
-
-		int *elementPerProcessCount;
-		NEWARRAY(elementPerProcessCount,p);
-
-
 		MPI_Gather(&localNumberOfElements,1,MPI_INT,elementPerProcessCount,1,MPI_INT,0,MPI_COMM_WORLD);
-		/*the elements lest in the local receive buffer must be only the elements that we want from each prosecc*/
-		MPI_Gather(localElementsRcvBuf,numberOfEllementsLeft,MPI_INT,totalRemainingArr,numberOfEllementsLeft,MPI_INT,0,MPI_COMM_WORLD);	//here is the mistake
-		int i=0;
-		int jj=0;
-		int kk=0;
-		while(jj<numberOfEllementsLeft && kk < p ){
-			while(i < *(elementPerProcessCount+kk) ){
-				*(totalRemainingArrFinal+jj)=*( (totalRemainingArr+(kk*numberOfEllementsLeft)+i) );
-				jj++;
-				i++;
-			}
-			i=0;
-			kk++;
-		}
+		MPI_Gather(localElementsRcvBuf,numberOfEllementsLeft,MPI_INT,gatherFromAllProcessesArray,numberOfEllementsLeft,MPI_INT,0,MPI_COMM_WORLD);	//here is the mistake
 		if(my_rank==0){
+			/*here we popullate the array from the different sizes of the received elements from each process into a main array called totalRemainingArrFinal */
 			int i=0;
-			printf("FINAL ELEMENTS LEFT=%d \n",numberOfEllementsLeft);
-			quicksort(sizeOfMainArray,arr-1);
-			printf("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ksmallest=%d \n",kSmallestEllement);
-			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArrFinal-1);
-			quicksort(numberOfEllementsLeft,totalRemainingArr-1);
-			for(i=0;i<numberOfEllementsLeft;i++){
-				printf("FINAL i=%d element=%d \n",i,*(totalRemainingArrFinal+i));
+			int jj=0;
+			int kk=0;
+			while(jj<numberOfEllementsLeft && kk < p ){
+				while(i < *(elementPerProcessCount+kk) ){
+					*(totalRemainingArrFinal+jj)=*( (gatherFromAllProcessesArray+(kk*numberOfEllementsLeft)+i) );
+					jj++;
+					i++;
+				}
+				i=0;
+				kk++;
 			}
+			/*finished populating the final array contains the different sized arrays from all processes
+			 *
+			 */
+			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArrFinal-1);
+			quicksort(sizeOfMainArray,arr-1);
+			quicksort(numberOfEllementsLeft,gatherFromAllProcessesArray-1);
 			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],totalRemainingArrFinal[kSmallestEllement-1]);
 			printf("the k-th element is %d ",finalKthElement);
-			printf("the %d\n\n",finalKthElement);
 		}
 	}else{
 		if(my_rank==0){
