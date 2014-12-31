@@ -236,17 +236,21 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 		unsigned long i,ir=n,j,k,l=1,*istack;
 		int jstack=0;
 		int a,temp;
+		double aa;
 		istack=lvector(1,NSTACK);
 		for (;;) {
 			//Insertion sort when subarray small enough.
 			if (ir-l < M) {
 				for (j=l+1;j<=ir;j++) {
 					a=arr[j];
+					aa=weights[j];
 					for (i=j-1;i>=l;i--) {
 						if (arr[i] <= a) break;
 						arr[i+1]=arr[i];
+						weights[i+1]=weights[i];
 					}
 					arr[i+1]=a;
+					weights[i+1]=aa;
 				}
 				if (jstack == 0) break;
 				ir=istack[jstack--];
@@ -291,8 +295,10 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 				}
 				//End of innermost loop.
 				arr[l+1]=arr[j];
+				weights[l+1]=weights[j];
 				//Insert partitioning element.
 				arr[j]=a;
+				weights[j]=aa;
 				jstack += 2;
 				//Push pointers to larger subarray on stack, process smaller subarray immediately.
 				if (jstack > NSTACK) nrerror("NSTACK too small in sort.");
@@ -357,15 +363,26 @@ int findWeightedMedian(int *arr,double *weights,int start,int end){
 		fprintf(stderr, "Error the arrays must be of equal size \n");
 	}else{
 		quicksortWithWeights(end+1,arr-1,weights-1);
+		int ll=0;
+		for(ll=0;ll<end+1;ll++){
+			printf("@$#@$@#$@#$@# i=%d weight=%f arr[i]=%d \n",ll,weights[ll],arr[ll]);
+		}
 		double sum = 0;
 		int i;
+		int median;
 		for(i = 0; i < end+1; ++i)
 		{
-			sum += weights[i];
-			if(sum >= (double)1/2 )
+			if(weights[i] >= (double)1/2){
+				printf("in here ############### weigths=%f arr[i]=%d i=%d arr[i-1]=%d arr[i+1]=%d \n",weights[i],arr[i],i,arr[i-1],arr[i+1]);
+				median=arr[i];
 				break;
+			}
+			sum += weights[i];
+			if(sum >= (double)1/2 ){
+				median= arr[i-1];
+				break;
+			}
 		}
-		int median = arr[i-1];
 		return median;
 	}
 }
@@ -582,13 +599,15 @@ int main(int argc, char* argv[]){
 	//print_array(localElementsRcvBuf,arrayNumberOfPartitionElements,my_rank);
 	MPI_Barrier(MPI_COMM_WORLD);
 	int localNumberOfElements=(arrayNumberOfPartitionElements);
-	while( numberOfEllementsLeft >= (sizeOfMainArray/(constantParametrized*p) )){
+	while( numberOfEllementsLeft >= (sizeOfMainArray/(constantParametrized*p) ) ){
 
 		createLocalMiNiVector(localNumberOfElements, my_rank,
 						localElementsRcvBuf, miNiSendBuffer);
 		MPI_Gather(miNiSendBuffer,2,MPI_INT,miNiRcvBuffer,2,MPI_INT,0,MPI_COMM_WORLD);
 
+
 		if(my_rank==0){
+
 			computeWeights(p, numberOfEllementsLeft,
 					miNiRcvBuffer, weights, miVector);
 			printMiVector(p, miVector);
@@ -616,7 +635,7 @@ int main(int argc, char* argv[]){
 				bcastBuff,my_rank);
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		short caseOne=*bcastBuff < kSmallestEllement && kSmallestEllement <= (*bcastBuff + (*(bcastBuff+2)));
+		short caseOne= ( (*bcastBuff < kSmallestEllement) && ( kSmallestEllement <= (*bcastBuff + (*(bcastBuff+2)) ) ) ) ;
 		short caseTwo=*bcastBuff >= kSmallestEllement;
 		if(caseOne){
 			printf("if %d  \n",my_rank);
