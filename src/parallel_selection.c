@@ -152,7 +152,7 @@ void inline quicksort(unsigned long n, int arr[]){
 	}
 	free_lvector(istack,1,NSTACK);
 	}else{
-			printf("trying to short an array with n=%d",n);
+			printf("SORT ARRAY trying to short an array with n=%d",n);
 			exit(1);
 		}
 }
@@ -220,7 +220,7 @@ int inline selectkthelem(unsigned long k, unsigned long n, int *arr){
 		}
 	}
 	}else{
-		printf("trying find the kth but k>n or n<1 an array with n=%d k=%d",n,k);
+		printf("SELECT KTH trying find the kth but k>n or n<1 an array with n=%d k=%d \n",n,k);
 		exit(1);
 	}
 }
@@ -309,7 +309,7 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 		}
 		free_lvector(istack,1,NSTACK);
 	}else{
-		printf("trying to short an array with n=%d",n);
+		printf(" SORT WITH WEIGHTS trying to short  an array with n=%d \n",n);
 		exit -1;
 	}
 }
@@ -421,7 +421,7 @@ LOCALCOUNTS* computeLocalCounts(int localNumberOfElements, int weightedMedian, i
 
 void createLocalMiNiVector(int localNumberOfElements, int my_rank,
 		int* localElementsRcvBuf, int* miNiSendBuffer) {
-	if (localNumberOfElements != 0  ) {
+	if (localNumberOfElements > 1  ) {
 		int k= localNumberOfElements / 2;
 		int kth = selectkthelem(k,localNumberOfElements,localElementsRcvBuf-1);
 		*(miNiSendBuffer) = kth;//after sorting
@@ -469,11 +469,12 @@ void print_array(int *array, int length,int rank)
     printf("\n");
 }
 
-int printMiVector(int p, int* miVector) {
+void printMiVector(int p, int* miVector) {
 	int i = 0;
 	for (i = 0; i < p; i++) {
 		printf("mi=%d \n", *(miVector + i));
 	}
+
 }
 
 void printMiNiReceiveBuffer(int p, int* miNiRcvBuffer) {
@@ -491,18 +492,18 @@ void printWeights(int p, double* weights) {
 	}
 }
 
-int printCounts(int numberOfEllementsLeft, LOCALCOUNTS* localCounters,int localNumberOfelements) {
-	printf("test li=%d", localCounters->li);
-	printf("test ei=%d", localCounters->ei);
-	printf("test gi=%d", localCounters->gi);
-	printf("global number of elements remaining=%d", numberOfEllementsLeft);
-	printf("local number of elements remaining=%d", localNumberOfelements);
+void printCounts(int numberOfEllementsLeft, LOCALCOUNTS* localCounters,int localNumberOfelements,int myrank) {
+	printf("test li=%d myrank=%d \n", localCounters->li,myrank);
+	printf("test ei=%d myrank=%d \n", localCounters->ei,myrank);
+	printf("test gi=%d myrank=%d \n", localCounters->gi,myrank);
+	printf("global number of elements remaining=%d myrank=%d \n", numberOfEllementsLeft,myrank);
+	printf("local number of elements remaining=%d myrank=%d \n", localNumberOfelements,myrank);
 }
 
-int printGlobalCounts(int numberOfEllementsLeft, int* bcastbuffer,int my_rank) {
-	printf("test li=%d my_rank", *bcastbuffer,my_rank);
-	printf("test ei=%d my_rank", *bcastbuffer+1,my_rank);
-	printf("test gi=%d my_rank", *bcastbuffer+2,my_rank);
+void printGlobalCounts(int numberOfEllementsLeft, int* bcastbuffer,int my_rank) {
+	printf("GLOBAL COUNTS test li=%d my_rank=%d noOFelements lest=%d \n", *bcastbuffer,my_rank,numberOfEllementsLeft);
+	printf("GLOBAL COUNTS test gi=%d my_rank=%d noOFelements lest=%d \n", *(bcastbuffer+1),my_rank,numberOfEllementsLeft);
+	printf("GLOBAL COUNTS test ei=%d my_rank=%d noOFelements lest=%d \n", *(bcastbuffer+2),my_rank,numberOfEllementsLeft);
 }
 
   /*
@@ -518,6 +519,7 @@ int main(int argc, char* argv[]){
 	int *bcastBuff = NULL;
 	int *miVector = NULL;
 	int *totalRemainingArr = NULL;
+	int *totalRemainingArrFinal=NULL;
 	double *weights = NULL;
 	int *miNiSendBuffer = NULL;
 	int weightedMedian=0;
@@ -596,9 +598,9 @@ int main(int argc, char* argv[]){
 		MPI_Bcast(bcastBuff,1,MPI_INT,0,MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 		weightedMedian=*bcastBuff;
-		localCounters=computeLocalCounts(localNumberOfElements, weightedMedian, localElementsRcvBuf,leg);
+		localCounters=computeLocalCounts(localNumberOfElements, weightedMedian, localElementsRcvBuf,leg);//modifies leg also
 		printCounts(numberOfEllementsLeft,
-				localCounters,localNumberOfElements);
+				localCounters,localNumberOfElements,my_rank);
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Gather(localCounters,1,mpi_local_counts_type,receiveGlobalCounts,1,mpi_local_counts_type,0,MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -626,7 +628,9 @@ int main(int argc, char* argv[]){
 			printf("else %d  \n",my_rank);
 			numberOfEllementsLeft=*(bcastBuff+1);
 			localNumberOfElements=localCounters->gi;
-			kSmallestEllement=kSmallestEllement-(*bcastBuff+*(bcastBuff+2));
+			printf("OLd KSMALEST=%d \n",kSmallestEllement);
+			kSmallestEllement=kSmallestEllement-(*bcastBuff+(*(bcastBuff+2)));
+			printf("NEW KSMALEST=%d \n",kSmallestEllement);
 			keepGreaterElements(localNumberOfElements,localElementsRcvBuf,leg);
 		}
 		localCounters->ei=0;
@@ -638,14 +642,40 @@ int main(int argc, char* argv[]){
 	if(!found){
 		if(my_rank==0){
 			NEWARRAY(totalRemainingArr,numberOfEllementsLeft*p);
+			NEWARRAY(totalRemainingArrFinal,numberOfEllementsLeft*p);
 		}
-		MPI_Gather(localElementsRcvBuf,numberOfEllementsLeft,MPI_INT,totalRemainingArr,numberOfEllementsLeft,MPI_INT,0,MPI_COMM_WORLD);	//
-		if(my_rank==0){
-			quicksort(sizeOfMainArray,arr-1);
-			quicksort(numberOfEllementsLeft,totalRemainingArr-1);
-			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArr-1);
 
-			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],totalRemainingArr[kSmallestEllement-1]);
+
+		int *elementPerProcessCount;
+		NEWARRAY(elementPerProcessCount,p);
+
+
+		MPI_Gather(&localNumberOfElements,1,MPI_INT,elementPerProcessCount,1,MPI_INT,0,MPI_COMM_WORLD);
+		/*the elements lest in the local receive buffer must be only the elements that we want from each prosecc*/
+		MPI_Gather(localElementsRcvBuf,numberOfEllementsLeft,MPI_INT,totalRemainingArr,numberOfEllementsLeft,MPI_INT,0,MPI_COMM_WORLD);	//here is the mistake
+		int i=0;
+		int jj=0;
+		int kk=0;
+		while(jj<numberOfEllementsLeft && kk < p ){
+			while(i < *(elementPerProcessCount+kk) ){
+				*(totalRemainingArrFinal+jj)=*( (totalRemainingArr+(kk*numberOfEllementsLeft)+i) );
+				jj++;
+				i++;
+			}
+			i=0;
+			kk++;
+		}
+		if(my_rank==0){
+			int i=0;
+			printf("FINAL ELEMENTS LEFT=%d \n",numberOfEllementsLeft);
+			quicksort(sizeOfMainArray,arr-1);
+			printf("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ksmallest=%d \n",kSmallestEllement);
+			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArrFinal-1);
+			quicksort(numberOfEllementsLeft,totalRemainingArr-1);
+			for(i=0;i<numberOfEllementsLeft;i++){
+				printf("FINAL i=%d element=%d \n",i,*(totalRemainingArrFinal+i));
+			}
+			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],totalRemainingArrFinal[kSmallestEllement-1]);
 			printf("the k-th element is %d ",finalKthElement);
 			printf("the %d\n\n",finalKthElement);
 		}
