@@ -235,7 +235,7 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 	if(n>1){
 		unsigned long i,ir=n,j,k,l=1,*istack;
 		int jstack=0;
-		int a,temp;
+		int a;
 		double aa;
 		istack=lvector(1,NSTACK);
 		for (;;) {
@@ -248,38 +248,43 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 						if (arr[i] <= a) break;
 						arr[i+1]=arr[i];
 						weights[i+1]=weights[i];
+
 					}
 					arr[i+1]=a;
 					weights[i+1]=aa;
+
 				}
 				if (jstack == 0) break;
 				ir=istack[jstack--];
-				//Pop stack and begin a new round of parti-
+				//Pop stack and begin a new round of partitioning.
 				l=istack[jstack--];
-				//tioning.
+
 			} else {
 				k=(l+ir) >> 1;
-				//Choose median of left, center, and right el-
+				//Choose median of left, center, and right el-//ements as partitioning element a. Also//rearrange so that a[l] ≤ a[l+1] ≤ a[ir].
 				SWAPINT(arr[k],arr[l+1]);
 				SWAPDOUBLE(weights[k],weights[l+1]);
-				//ements as partitioning element a. Also
 				if (arr[l] > arr[ir]) {
-					//rearrange so that a[l] ≤ a[l+1] ≤ a[ir].
+
 					SWAPINT(arr[l],arr[ir]);
 					SWAPDOUBLE(weights[l],weights[ir]);
+
 				}
 				if (arr[l+1] > arr[ir]) {
 					SWAPINT(arr[l+1],arr[ir]);
 					SWAPDOUBLE(weights[l+1],weights[ir]);
+
 				}
 				if (arr[l] > arr[l+1]) {
 					SWAPINT(arr[l],arr[l+1]);
 					SWAPDOUBLE(weights[l],weights[l+1]);
+
 				}
 				i=l+1;
 				//Initialize pointers for partitioning.
 				j=ir;
 				a=arr[l+1];
+				aa=weights[l+1];
 				//Partitioning element.
 				for (;;) {
 					//Beginning of innermost loop.
@@ -291,14 +296,17 @@ void inline quicksortWithWeights(unsigned long n, int arr[],double weights[]){
 					//Pointers crossed. Partitioning complete.
 					SWAPINT(arr[i],arr[j]);
 					SWAPDOUBLE(weights[i],weights[j]);
+
 					//Exchange elements.
 				}
 				//End of innermost loop.
 				arr[l+1]=arr[j];
 				weights[l+1]=weights[j];
+
 				//Insert partitioning element.
 				arr[j]=a;
 				weights[j]=aa;
+
 				jstack += 2;
 				//Push pointers to larger subarray on stack, process smaller subarray immediately.
 				if (jstack > NSTACK) nrerror("NSTACK too small in sort.");
@@ -362,8 +370,12 @@ int findWeightedMedian(int *arr,double *weights,int start,int end){
 	if( sizeof(arr) != sizeof(weights) ){
 		fprintf(stderr, "Error the arrays must be of equal size \n");
 	}else{
-		quicksortWithWeights(end+1,arr-1,weights-1);
 		int ll=0;
+		for(ll=0;ll<end+1;ll++){
+					printf("before @$#@$@#$@#$@# i=%d weight=%f arr[i]=%d \n",ll,weights[ll],arr[ll]);
+				}
+		quicksortWithWeights(end+1,arr-1,weights-1);
+		 ll=0;
 		for(ll=0;ll<end+1;ll++){
 			printf("@$#@$@#$@#$@# i=%d weight=%f arr[i]=%d \n",ll,weights[ll],arr[ll]);
 		}
@@ -407,6 +419,7 @@ void computeWeights(int p, int numberOfEllementsLeft,
 		*(weights + ii) = (double) ni / numberOfEllementsLeft;
 		*(miVector + ii) = mi;
 		if (ni == 0) {
+			printf("my rank=%d ni==0 ",ii);
 			*(weights + ii) = 0;
 			*(miVector + ii) = 0;
 		}
@@ -447,6 +460,7 @@ void createLocalMiNiVector(int localNumberOfElements, int my_rank,
 		*(miNiSendBuffer) = *localElementsRcvBuf;
 		*(miNiSendBuffer + 1) = 1;
 	}else{
+		printf("\n\n localnumber of elements %d myrank=%d \n\n",localNumberOfElements,my_rank);
 		*(miNiSendBuffer) = 0;
 		*(miNiSendBuffer + 1) = 0;
 	}
@@ -479,6 +493,9 @@ void keepGreaterElements(int localNumberOfElements, int* localElementsRcvBuf,
 void keepLessElements(int localNumberOfElements, int* localElementsRcvBuf,LEG* leg) {
 	int i = 0;
 	for (i = 0; i < localNumberOfElements; i++) {
+		if(*(localElementsRcvBuf + i)==0){
+			printf("keeping lessssssssssssssssss i=%d localnumbofele=%d ########################### \n ",i,localNumberOfElements);
+		}
 		*(localElementsRcvBuf + i) = *(leg->L + i);
 	}
 }
@@ -546,7 +563,9 @@ int main(int argc, char* argv[]){
 	int found=0;
 	int intialRankNumber=0;
 	int *elementPerProcessCount;
-
+	int arrayNumberOfPartitionElements;
+	int extraElements;
+	int localNumberOfElements;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
@@ -554,7 +573,14 @@ int main(int argc, char* argv[]){
 	sizeOfMainArray=atoi(argv[1]);
 	int kSmallestEllement=atoi(argv[2]);
 	intialRankNumber=kSmallestEllement;
-	int arrayNumberOfPartitionElements=sizeOfMainArray/p;
+
+	if(sizeOfMainArray % p == 0){
+		extraElements=0;
+		arrayNumberOfPartitionElements=sizeOfMainArray/p;
+	}else{
+		arrayNumberOfPartitionElements=(sizeOfMainArray/p)+1;
+		extraElements=(arrayNumberOfPartitionElements*p)-sizeOfMainArray;
+	}
 	LOCALCOUNTS *localCounters=calloc(1,sizeof(LOCALCOUNTS));;
 	LOCALCOUNTS *receiveGlobalCounts=calloc(p,sizeof(LOCALCOUNTS));
 	LEG *leg=New_LEG(arrayNumberOfPartitionElements);
@@ -596,15 +622,31 @@ int main(int argc, char* argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);
 	scatterTheArray(sizeOfMainArray, p, arrayNumberOfPartitionElements, arr,
 			localElementsRcvBuf);
+
 	//print_array(localElementsRcvBuf,arrayNumberOfPartitionElements,my_rank);
 	MPI_Barrier(MPI_COMM_WORLD);
-	int localNumberOfElements=(arrayNumberOfPartitionElements);
+	if(extraElements==0){
+		localNumberOfElements=(arrayNumberOfPartitionElements);
+	}else{
+		if(my_rank != (p-1 ) ){
+			localNumberOfElements=(arrayNumberOfPartitionElements);
+		}else{
+			localNumberOfElements=(arrayNumberOfPartitionElements-extraElements);
+		}
+	}
+	int kl=0;
+		for(kl=0;kl<localNumberOfElements;kl++){
+			if(*(localElementsRcvBuf+kl)==0){
+				printf("\n kl is =%d myrank=%d \n",kl,my_rank);
+			}
+		}
 	while( numberOfEllementsLeft >= (sizeOfMainArray/(constantParametrized*p) ) ){
 
 		createLocalMiNiVector(localNumberOfElements, my_rank,
 						localElementsRcvBuf, miNiSendBuffer);
+		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Gather(miNiSendBuffer,2,MPI_INT,miNiRcvBuffer,2,MPI_INT,0,MPI_COMM_WORLD);
-
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		if(my_rank==0){
 
@@ -691,12 +733,21 @@ int main(int argc, char* argv[]){
 			int finalKthElement=selectkthelem(kSmallestEllement,numberOfEllementsLeft,totalRemainingArrFinal-1);
 			quicksort(sizeOfMainArray,arr-1);
 			quicksort(numberOfEllementsLeft,gatherFromAllProcessesArray-1);
+			int iii=0;
+			for(iii=0;iii<sizeOfMainArray;iii++){
+				printf("ARR i=%d arr[iii]=%d \n",iii,arr[iii]);
+			}
 			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],totalRemainingArrFinal[kSmallestEllement-1]);
 			printf("the k-th element is %d ",finalKthElement);
 			printf("the %d\n\n",finalKthElement);
 		}
 	}else{
 		if(my_rank==0){
+			quicksort(sizeOfMainArray,arr-1);
+			int iii=0;
+			for(iii=0;iii<sizeOfMainArray;iii++){
+							printf("ARR i=%d arr[iii]=%d \n",iii,arr[iii]);
+						}
 			quicksort(sizeOfMainArray,arr-1);
 			printf("The number we are looking for is x:=%d and the result from computation is res:=%d \n",arr[intialRankNumber-1],weightedMedian);
 			printf("the k-th element is %d  after tfound the weighted \n",weightedMedian);
