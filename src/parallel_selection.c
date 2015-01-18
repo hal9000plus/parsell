@@ -593,7 +593,7 @@ int main(int argc, char* argv[]){
 	MPI_Get_address(&localCounters->gi, &addr[3]);
 	offsets[0] = addr[1] - addr[0];
 	offsets[1] = addr[2] - addr[0];
-	offsets[1] = addr[3] - addr[0];
+	offsets[2] = addr[3] - addr[0];
 	MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_local_counts_type);
 	MPI_Type_commit(&mpi_local_counts_type);
 	/* create a type for struct localCounters */
